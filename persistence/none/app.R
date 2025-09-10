@@ -26,8 +26,8 @@ if (nrow(featured_animals) < 8) {
 # Define UI
 ui <- fluidPage(
   tags$head(
-  tags$link(rel = "stylesheet", type = "text/css", href = "styles.css")
-),
+    tags$link(rel = "stylesheet", type = "text/css", href = "styles.css")
+  ),
   
   div(class = "search-container",
     div(class = "logo-container",
@@ -71,6 +71,32 @@ ui <- fluidPage(
 # Define server logic
 server <- function(input, output, session) {
   
+  # Generate unique session ID
+  session_id <- paste0("session_", format(Sys.time(), "%Y%m%d_%H%M%S"), "_", 
+                       sample(1000:9999, 1))
+  
+  # Reactive values to track which animals have been rated
+  rated_animals <- reactiveValues()
+  
+  # Function to save rating to CSV
+  save_rating <- function(animal_name, rating, session_id) {
+    rating_data <- data.frame(
+      timestamp = Sys.time(),
+      session_id = session_id,
+      animal_name = animal_name,
+      rating = rating,
+      stringsAsFactors = FALSE
+    )
+    
+    # Check if file exists, if not create with headers
+    if (!file.exists("animal_ratings.csv")) {
+      write.csv(rating_data, "animal_ratings.csv", row.names = FALSE)
+    } else {
+      write.table(rating_data, "animal_ratings.csv", 
+                  sep = ",", append = TRUE, row.names = FALSE, col.names = FALSE)
+    }
+  }
+  
   # Clean up text fields helper function
   clean_text <- function(text) {
     if (is.na(text) || text == "") return("")
@@ -89,6 +115,55 @@ server <- function(input, output, session) {
   # Handle clear search clicks
   observeEvent(input$clear_search, {
     updateTextInput(session, "search_query", value = "")
+  })
+  
+  # Handle rating clicks
+  observe({
+    # Get all inputs that start with "love_" or "nope_"
+    love_inputs <- names(input)[grepl("^love_", names(input))]
+    nope_inputs <- names(input)[grepl("^nope_", names(input))]
+    
+    # Handle love ratings
+    for (input_name in love_inputs) {
+      if (!is.null(input[[input_name]]) && input[[input_name]] > 0) {
+        animal_name <- gsub("^love_", "", input_name)
+        animal_name <- gsub("_", " ", animal_name)
+        
+        # Only process if not already rated
+        if (is.null(rated_animals[[animal_name]])) {
+          save_rating(animal_name, "Literally in love", session_id)
+          rated_animals[[animal_name]] <- "love"
+          
+          # Show feedback
+          showNotification(
+            paste("💕 Recorded your love for", animal_name, "!"),
+            type = "message",
+            duration = 2
+          )
+        }
+      }
+    }
+    
+    # Handle nope ratings
+    for (input_name in nope_inputs) {
+      if (!is.null(input[[input_name]]) && input[[input_name]] > 0) {
+        animal_name <- gsub("^nope_", "", input_name)
+        animal_name <- gsub("_", " ", animal_name)
+        
+        # Only process if not already rated
+        if (is.null(rated_animals[[animal_name]])) {
+          save_rating(animal_name, "Not my type", session_id)
+          rated_animals[[animal_name]] <- "nope"
+          
+          # Show feedback
+          showNotification(
+            paste("👎 Noted that", animal_name, "is not your type"),
+            type = "message",
+            duration = 2
+          )
+        }
+      }
+    }
   })
   
   # Featured animals for landing page
@@ -171,6 +246,9 @@ server <- function(input, output, session) {
     animal_cards <- lapply(1:nrow(data), function(i) {
       animal <- data[i, ]
       
+      # Create unique button IDs (replace spaces with underscores)
+      animal_id <- gsub(" ", "_", animal$name)
+      
       # Determine conservation status color class
       conservation_class <- "conservation-stable"
       if (!is.na(animal$conservation_status)) {
@@ -181,6 +259,9 @@ server <- function(input, output, session) {
         }
       }
       
+      # Check if this animal has been rated
+      is_rated <- !is.null(rated_animals[[animal$name]])
+      
       div(class = "animal-card",
         # Animal image (if available)
         if (!is.na(animal$image_url) && animal$image_url != "") {
@@ -188,13 +269,13 @@ server <- function(input, output, session) {
               onerror = "this.style.display='none'")
         },
         
-      # Animal name and scientific name
-      div(class = "animal-name", 
-          onclick = paste0("window.open('", animal$url, "', '_blank')"),
-          animal$name,
-          span(class = "external-link-icon", "↗")
-      ),
-      div(class = "scientific-name", animal$scientific_name),
+        # Animal name and scientific name
+        div(class = "animal-name", 
+            onclick = paste0("window.open('", animal$url, "', '_blank')"),
+            animal$name,
+            span(class = "external-link-icon", "↗")
+        ),
+        div(class = "scientific-name", animal$scientific_name),
         
         # Animal details
         div(class = "animal-details",
@@ -220,6 +301,24 @@ server <- function(input, output, session) {
         if (!is.na(animal$fun_fact) && animal$fun_fact != "") {
           div(class = "fun-fact",
               strong("Fun Fact: "), clean_text(animal$fun_fact))
+        },
+        
+        # Rating buttons or thank you message
+        if (is_rated) {
+          div(class = "thank-you-message", "✨ Thanks for sharing!")
+        } else {
+          div(class = "rating-buttons",
+            actionButton(
+              inputId = paste0("love_", animal_id),
+              label = "💕 Literally in love",
+              class = "love-button"
+            ),
+            actionButton(
+              inputId = paste0("nope_", animal_id),
+              label = "👎 Not my type", 
+              class = "nope-button"
+            )
+          )
         }
       )
     })
