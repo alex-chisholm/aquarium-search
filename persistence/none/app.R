@@ -84,6 +84,9 @@ server <- function(input, output, session) {
   # Reactive values to track which animals have been rated
   rated_animals <- reactiveValues()
   
+  # Reactive trigger for ratings updates
+  ratings_trigger <- reactiveVal(0)
+  
   # Function to save rating to CSV
   save_rating <- function(animal_name, rating, session_id) {
     rating_data <- data.frame(
@@ -103,8 +106,11 @@ server <- function(input, output, session) {
     }
   }
   
-  # Function to read and summarize ratings
+  # Function to read and summarize ratings (now reactive to trigger)
   get_ratings_summary <- reactive({
+    # Depend on the trigger to refresh when ratings change
+    ratings_trigger()
+    
     if (!file.exists("ratings.csv")) {
       return(NULL)
     }
@@ -170,6 +176,9 @@ server <- function(input, output, session) {
           save_rating(animal_name, "Literally in love", session_id)
           rated_animals[[animal_name]] <- "love"
           
+          # Trigger ratings summary refresh
+          ratings_trigger(ratings_trigger() + 1)
+          
           # Show feedback
           showNotification(
             paste("💕 Recorded your love for", animal_name, "!"),
@@ -190,6 +199,9 @@ server <- function(input, output, session) {
         if (is.null(rated_animals[[animal_name]])) {
           save_rating(animal_name, "Not my type", session_id)
           rated_animals[[animal_name]] <- "nope"
+          
+          # Trigger ratings summary refresh
+          ratings_trigger(ratings_trigger() + 1)
           
           # Show feedback
           showNotification(
