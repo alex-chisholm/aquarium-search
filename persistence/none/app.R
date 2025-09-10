@@ -41,12 +41,18 @@ ui <- fluidPage(
               value = "")
   ),
   
-  # Landing page with featured animals
+  # Landing page with featured animals and ratings summary
   conditionalPanel(
     condition = "input.search_query == ''",
     div(class = "landing-container",
       h2("Some of Our Favorites", class = "favorites-header"),
-      uiOutput("featured_animals")
+      uiOutput("featured_animals"),
+      
+      # Ratings summary section
+      div(class = "ratings-summary-container",
+        h2("Visitor Favorites", class = "ratings-header"),
+        uiOutput("ratings_summary")
+      )
     )
   ),
   
@@ -89,13 +95,43 @@ server <- function(input, output, session) {
     )
     
     # Check if file exists, if not create with headers
-    if (!file.exists("animal_ratings.csv")) {
-      write.csv(rating_data, "animal_ratings.csv", row.names = FALSE)
+    if (!file.exists("ratings.csv")) {
+      write.csv(rating_data, "ratings.csv", row.names = FALSE)
     } else {
-      write.table(rating_data, "animal_ratings.csv", 
+      write.table(rating_data, "ratings.csv", 
                   sep = ",", append = TRUE, row.names = FALSE, col.names = FALSE)
     }
   }
+  
+  # Function to read and summarize ratings
+  get_ratings_summary <- reactive({
+    if (!file.exists("ratings.csv")) {
+      return(NULL)
+    }
+    
+    tryCatch({
+      ratings_data <- read.csv("ratings.csv", stringsAsFactors = FALSE)
+      
+      if (nrow(ratings_data) == 0) {
+        return(NULL)
+      }
+      
+      # Count ratings by animal and type
+      love_summary <- ratings_data |>
+        filter(rating == "Literally in love") |>
+        count(animal_name, sort = TRUE) |>
+        head(10)
+      
+      nope_summary <- ratings_data |>
+        filter(rating == "Not my type") |>
+        count(animal_name, sort = TRUE) |>
+        head(10)
+      
+      return(list(love = love_summary, nope = nope_summary))
+    }, error = function(e) {
+      return(NULL)
+    })
+  })
   
   # Clean up text fields helper function
   clean_text <- function(text) {
@@ -189,6 +225,64 @@ server <- function(input, output, session) {
     })
     
     div(class = "favorites-grid", featured_cards)
+  })
+  
+  # Ratings summary output
+  output$ratings_summary <- renderUI({
+    summary_data <- get_ratings_summary()
+    
+    if (is.null(summary_data)) {
+      return(div(class = "no-ratings", "No ratings yet"))
+    }
+    
+    # Create love and nope lists
+    love_list <- if (nrow(summary_data$love) > 0) {
+      div(class = "rating-column love-column",
+        h3("💕 Most Loved", class = "rating-column-header"),
+        div(class = "rating-list",
+          lapply(1:nrow(summary_data$love), function(i) {
+            animal <- summary_data$love[i, ]
+            div(class = "rating-item",
+              span(class = "rank", paste0(i, ".")),
+              span(class = "animal-name-summary", 
+                   onclick = paste0("Shiny.setInputValue('featured_animal_click', '", animal$animal_name, "', {priority: 'event'});"),
+                   animal$animal_name),
+              span(class = "vote-count", paste0("(", animal$n, " votes)"))
+            )
+          })
+        )
+      )
+    } else {
+      div(class = "rating-column love-column",
+        h3("💕 Most Loved", class = "rating-column-header"),
+        div(class = "no-votes", "No votes yet")
+      )
+    }
+    
+    nope_list <- if (nrow(summary_data$nope) > 0) {
+      div(class = "rating-column nope-column",
+        h3("👎 Not Their Type", class = "rating-column-header"),
+        div(class = "rating-list",
+          lapply(1:nrow(summary_data$nope), function(i) {
+            animal <- summary_data$nope[i, ]
+            div(class = "rating-item",
+              span(class = "rank", paste0(i, ".")),
+              span(class = "animal-name-summary",
+                   onclick = paste0("Shiny.setInputValue('featured_animal_click', '", animal$animal_name, "', {priority: 'event'});"),
+                   animal$animal_name),
+              span(class = "vote-count", paste0("(", animal$n, " votes)"))
+            )
+          })
+        )
+      )
+    } else {
+      div(class = "rating-column nope-column",
+        h3("👎 Not Their Type", class = "rating-column-header"),
+        div(class = "no-votes", "No votes yet")
+      )
+    }
+    
+    div(class = "ratings-summary-grid", love_list, nope_list)
   })
   
   # Reactive expression for filtered data
@@ -305,7 +399,13 @@ server <- function(input, output, session) {
         
         # Rating buttons or thank you message
         if (is_rated) {
-          div(class = "thank-you-message", "✨ Thanks for sharing!")
+          # Create personalized thank you message based on rating
+          rating_type <- rated_animals[[animal$name]]
+          if (rating_type == "love") {
+            div(class = "thank-you-message love-message", "💕 Literally in love - Thanks for sharing!")
+          } else {
+            div(class = "thank-you-message nope-message", "👎 Not my type - Thanks for sharing!")
+          }
         } else {
           div(class = "rating-buttons",
             actionButton(
