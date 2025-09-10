@@ -1,6 +1,8 @@
 from shiny import App, ui, render, reactive
 import pandas as pd
 import re
+from pathlib import Path
+
 
 # Read the aquarium data
 aquarium_data = pd.read_csv("aquarium.csv")
@@ -278,7 +280,7 @@ def server(input, output, session):
         return animal_cards
 
 # Create the app
-app = App(app_ui, server, static_assets="www")
+app = App(app_ui, server, static_assets=Path(__file__).parent / "www")
 
 if __name__ == "__main__":
     app.run()
