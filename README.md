@@ -4,7 +4,7 @@
 
 ### Shiny for R
 
-[![](https://docs.posit.co/connect-cloud/images/cc-deploy.svg)](https://connect.posit.cloud/publish?contentType=shiny&sourceRepositoryURL=https%3A%2F%2Fgithub.com%2Falex-chisholm%2aquarium-search&sourceRef=main&sourceRefType=branch&primaryFile=r%2app.py)
+[![](https://docs.posit.co/connect-cloud/images/cc-deploy.svg)](https://connect.posit.cloud/publish?contentType=shiny&sourceRepositoryURL=https%3A%2F%2Fgithub.com%2Falex-chisholm%2aquarium-search&sourceRef=main&sourceRefType=branch&primaryFile=r%2app.R)
 
 ### Shiny for Python
 
