@@ -7,11 +7,11 @@ library(RPostgres)
 
 # PostgreSQL configuration
 # You can set these as environment variables for security
-PG_HOST <- Sys.getenv("PG_HOST", "localhost")
-PG_PORT <- as.integer(Sys.getenv("PG_PORT", "5432"))
-PG_DBNAME <- Sys.getenv("PG_DBNAME", "aquarium_ratings")
-PG_USER <- Sys.getenv("PG_USER", "your_username")
-PG_PASSWORD <- Sys.getenv("PG_PASSWORD", "your_password")
+PG_HOST <- Sys.getenv("PG_HOST")
+PG_PORT <- as.integer(Sys.getenv("PG_PORT"))
+PG_DBNAME <- Sys.getenv("PG_DBNAME")
+PG_USER <- Sys.getenv("PG_USER")
+PG_PASSWORD <- Sys.getenv("PG_PASSWORD")
 
 # Function to get PostgreSQL connection
 get_pg_connection <- function() {
